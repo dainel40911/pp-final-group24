@@ -3,28 +3,33 @@
 #include <memory>
 #include <cstring>
 #include <utility>
-#include <random>
-#include <ctime>
 #include <iostream>
 #include <iomanip>
 
 
 namespace GP{
 
-template<class T = double>
+template<class T>
 class matrix{
 private:
     std::shared_ptr<T[]> buffer_;
     size_t row_;
     size_t col_;
 public:
+    static size_t copy_count;
     using value_type = T;
     class DimensionalityException : public std::exception{
     public:
-        char* what(){
+        const char* what() const throw() { 
             return "GP::matrix dimensions don't match.";
         } 
     };
+
+    static void matrix_get_copied(size_t space){
+        // this function is for debug
+        std::cout << "Matrix getting copied. "<< space<<" items are copied.\n";
+        copy_count+=space;
+    }
 
     // constructor
     matrix():
@@ -52,7 +57,11 @@ public:
             buffer_.get(),
             m.buffer_.get(),
             buffer_size*sizeof(value_type));
+        // matrix_get_copied(buffer_size);
     }
+    matrix(matrix<value_type>&& m):
+        row_{m.row_}, col_{m.col_}, buffer_{m.buffer_}
+    {}
 
     // assign
     matrix<value_type>& operator=(const matrix<value_type>& m){
@@ -63,24 +72,42 @@ public:
             buffer_.get(),
             m.buffer_.get(),
             buffer_size*sizeof(value_type));
+        // matrix_get_copied(buffer_size);
+        return *this;
+    }
+    matrix<value_type>& operator=(matrix<value_type>&& m){
+        row_ = m.row_; col_ = m.col_;
+        buffer_ = m.buffer_;
         return *this;
     }
 
-    auto size() const -> size_t {
+    inline auto size() const -> size_t {
         return row_*col_;
     }
-    auto shape() const -> std::pair<size_t, size_t> {
+    inline auto shape() const -> std::pair<size_t, size_t> {
         return std::pair<size_t, size_t>{row_, col_};
     }
-    auto ptr() const {
+    auto shape(size_t dim) const -> size_t {
+        switch (dim)
+        {
+        case 0:
+            return row_;
+            break;
+        case 1:
+            return col_;
+            break;
+        
+        default:
+            throw DimensionalityException();
+        }
+    }
+    inline auto ptr() const {
         return buffer_.get();
     }
-    value_type& operator()(size_t r, size_t c){
-        // assert(r < row_ and c < col_);
+    inline value_type& operator()(size_t r, size_t c){
         return buffer_[r*col_ + c];
     }
-    value_type operator()(size_t r, size_t c) const {
-        // assert(r < row_ and c < col_);
+    inline value_type operator()(size_t r, size_t c) const {
         return buffer_[r*col_ + c];
     }
 
@@ -94,7 +121,7 @@ public:
     matrix<value_type> operator+(const matrix<value_type>& rhs){
         auto&& [rrow, rcol] = rhs.shape();
         if(row_ != rrow or col_ != rcol){
-            throw matrix<>::DimensionalityException();
+            throw matrix<value_type>::DimensionalityException();
         }
         matrix<value_type> res{row_, col_};
         auto last = res.size();
@@ -102,16 +129,16 @@ public:
             res.buffer_[idx] = buffer_[idx] + rhs.buffer_[idx];
         return res;
     }
-    matrix<value_type> operator-(){
+    inline matrix<value_type> operator-(){
         return (*this)*value_type{-1};
     }
-    matrix<value_type> operator-(value_type val){
+    inline matrix<value_type> operator-(value_type val){
         return (*this) + (-val);
     }
     matrix<value_type> operator-(const matrix<value_type>& rhs){
         auto&& [rrow, rcol] = rhs.shape();
         if(row_ != rrow or col_ != rcol){
-            throw matrix<>::DimensionalityException();
+            throw matrix<value_type>::DimensionalityException();
         }
         matrix<value_type> res{row_, col_};
         auto last = res.size();
@@ -137,7 +164,7 @@ public:
         for(size_t idx = 0; idx < last; ++ idx) buffer_[idx] += val;
         return *this;
     }
-    matrix<value_type>& operator-=(value_type val){
+    inline matrix<value_type>& operator-=(value_type val){
         return (*this) += -val;
     }
     matrix<value_type>& operator*=(value_type val){
@@ -165,4 +192,8 @@ public:
         return is;
     }
 };
+template<>
+size_t matrix<double>::copy_count = 0;
+
+using Matrix = matrix<double>;
 }

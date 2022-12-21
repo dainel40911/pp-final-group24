@@ -1,5 +1,5 @@
 #pragma once
-#include <GP/matrix/matrix.hpp>
+#include <matrix/matrix.hpp>
 
 namespace GP{
 

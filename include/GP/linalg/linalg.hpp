@@ -1,41 +1,40 @@
 #pragma once
-#include <GP/matrix/matrix.hpp>
-// #include <omp.h>
+#include <matrix/matrix.hpp>
+#include <random>
 namespace GP{
 
 namespace linalg{
 
 const size_t CACHE_LINESIZE = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
 
+
 template<class T>
-matrix<T> inv(const matrix<T>& mat){
+matrix<T> inv_impl(matrix<T>& mat){
     // implement Gauss-Jordan
     auto&& [row_, col_] = mat.shape();
     if(row_ != col_){
-        throw matrix<>::DimensionalityException();
+        throw typename matrix<T>::DimensionalityException();
     }
     size_t n = row_;
-    auto self_cpy = mat;
     auto inv_mat = identity<T>(n);
-    T* self_ptr = self_cpy.ptr();
+    T* self_ptr = mat.ptr();
     T* inv_ptr = inv_mat.ptr();
     for(size_t iter = 0; iter < n; ++iter){
         // divide #iter row by matrix(iter, iter)
         auto self_start_iter = self_ptr + iter*n;
         auto inv_start_iter = inv_ptr + iter*n;
         {
-            T val = self_cpy(iter, iter);
+            T val = mat(iter, iter);
             for(size_t c = 0; c < n; ++c)
             { self_start_iter[c] /= val; inv_start_iter[c] /= val; }
         }
 
         // row sub
-        // #pragma omp parallel for
         for(size_t r = 0; r < n; ++r){
             if(r == iter) continue;
             auto self_start_r = self_ptr + r*n;
             auto inv_start_r = inv_ptr + r*n;
-            T ratio = self_cpy(r, iter);
+            T ratio = mat(r, iter);
             for(size_t c = 0; c < n; ++c){
                 self_start_r[c] -= self_start_iter[c] * ratio;
                 inv_start_r[c] -= inv_start_iter[c] * ratio;
@@ -44,15 +43,26 @@ matrix<T> inv(const matrix<T>& mat){
     }
     return inv_mat;
 }
+template<class T>
+matrix<T> inv(matrix<T>&& m){
+    matrix<T> mat = std::forward<matrix<T>>(m);
+    return inv_impl(mat);
+}
+template<class T>
+matrix<T> inv(matrix<T>& m){
+    matrix<T> mat = m;
+    return inv_impl(mat);
+}
 
 
 template<class T>
-matrix<T> matmul(const matrix<T>& a, const matrix<T>& b){
+matrix<T> matmul(const matrix<T>& a, const matrix<T>& _b){
     auto&& [lrow, lcol] = a.shape();
-    auto&& [rrow, rcol] = b.shape();
+    auto&& [rrow, rcol] = _b.shape();
     if(lcol != rrow){
-        throw matrix<>::DimensionalityException();
+        throw typename matrix<T>::DimensionalityException();
     }
+    auto b = transpose<T>(_b);
     const size_t cache_size = CACHE_LINESIZE / sizeof(T);
     auto row = lrow, col = rcol;
     matrix<T> res{row, rcol};
@@ -72,7 +82,7 @@ matrix<T> matmul(const matrix<T>& a, const matrix<T>& b){
                         T sum{};
                         for(size_t k_tile = k; k_tile < k_max; ++ k_tile)
                             sum += a_ptr[r_tile*lcol + k_tile] *
-                                b_ptr[k_tile*rcol + c_tile];
+                                b_ptr[c_tile*lcol + k_tile];
                         res_ptr[r_tile*col + c_tile] += sum;
                     }
                 }
@@ -103,8 +113,14 @@ matrix<T>& operator^=(matrix<T>& lhs, const matrix<T>& rhs){
     return lhs;
 }
 template<class T>
-matrix<T> operator~(const matrix<T>& m){
-    return inv(m);
+matrix<T> operator~(matrix<T>&& m){
+    matrix<T> mat = std::forward<matrix<T>>(m);
+    return inv_impl(mat);
+}
+template<class T>
+matrix<T> operator~(matrix<T>& m){
+    matrix<T> mat = m;
+    return inv_impl(mat);
 }
 
 template<class T> 
@@ -142,7 +158,7 @@ matrix<T> diag(const matrix<T>& m){
             res(idx, 0) = m(idx, idx);
         return res;
     }
-    throw matrix<>::DimensionalityException();
+    throw typename matrix<T>::DimensionalityException();
 }
 
 }
