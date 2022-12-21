@@ -1,12 +1,60 @@
 #pragma once
 #include <matrix/matrix.hpp>
 #include <random>
+#include <unistd.h>
 namespace GP{
 
 namespace linalg{
 
-const size_t CACHE_LINESIZE = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+const size_t MY_GP_CACHE_LINESIZE = 64;
 
+template<class T> 
+matrix<T> identity(size_t n){
+    matrix<T> res{n};
+    for(size_t idx = 0; idx < n; ++idx)
+        res(idx, idx) = T{1};
+    return res;
+}
+
+template<class T> 
+matrix<T> randn(size_t r, size_t c = 1){
+    static std::mt19937 gen(time(nullptr));
+    std::uniform_real_distribution<T> dis;
+    matrix<T> res{r, c};
+    auto n = r*c;
+    for(size_t idx = 0; idx < n; ++idx)
+        res(idx / c, idx % c) = dis(gen);
+    return res;
+}
+
+template<class T> 
+matrix<T> diag(const matrix<T>& m){
+    auto&& [r, c] = m.shape();
+    if(r == 1 or c == 1){
+        int n = (r == 1 ? c : r);
+        matrix<T> res(n);
+        for(size_t idx = 0; idx < n; ++ idx)
+            res(idx, idx) = (r == 1 ? m(0, idx) : m(idx, 0));
+        return res;
+    }
+    else if(r == c){
+        matrix<T> res(r, 1);
+        for(size_t idx = 0; idx < r; ++ idx)
+            res(idx, 0) = m(idx, idx);
+        return res;
+    }
+    throw typename matrix<T>::DimensionalityException();
+}
+
+template<class T>
+matrix<T> transpose(const matrix<T>& m){
+    auto&& [r, c] = m.shape();
+    matrix<T> trans{c, r};
+    for(size_t i = 0;i < r;++i)
+        for(size_t j = 0;j < c;++j)
+            trans(j, i) = m(i, j);
+    return trans;
+}
 
 template<class T>
 matrix<T> inv_impl(matrix<T>& mat){
@@ -63,7 +111,7 @@ matrix<T> matmul(const matrix<T>& a, const matrix<T>& _b){
         throw typename matrix<T>::DimensionalityException();
     }
     auto b = transpose<T>(_b);
-    const size_t cache_size = CACHE_LINESIZE / sizeof(T);
+    const size_t cache_size = MY_GP_CACHE_LINESIZE / sizeof(T);
     auto row = lrow, col = rcol;
     matrix<T> res{row, rcol};
 
@@ -93,16 +141,6 @@ matrix<T> matmul(const matrix<T>& a, const matrix<T>& _b){
 }
 
 template<class T>
-matrix<T> transpose(const matrix<T>& m){
-    auto&& [r, c] = m.shape();
-    matrix<T> trans{c, r};
-    for(size_t i = 0;i < r;++i)
-        for(size_t j = 0;j < c;++j)
-            trans(j, i) = m(i, j);
-    return trans;
-}
-
-template<class T>
 matrix<T> operator^(const matrix<T>& lhs, const matrix<T>& rhs){
     return matmul<T>(lhs, rhs);
 }
@@ -121,44 +159,6 @@ template<class T>
 matrix<T> operator~(matrix<T>& m){
     matrix<T> mat = m;
     return inv_impl(mat);
-}
-
-template<class T> 
-matrix<T> identity(size_t n){
-    matrix<T> res{n};
-    for(size_t idx = 0; idx < n; ++idx)
-        res(idx, idx) = T{1};
-    return res;
-}
-
-template<class T> 
-matrix<T> randn(size_t r, size_t c = 1){
-    static std::mt19937 gen(time(nullptr));
-    std::uniform_real_distribution<T> dis;
-    matrix<T> res{r, c};
-    auto n = r*c;
-    for(size_t idx = 0; idx < n; ++idx)
-        res(idx / c, idx % c) = dis(gen);
-    return res;
-}
-
-template<class T> 
-matrix<T> diag(const matrix<T>& m){
-    auto&& [r, c] = m.shape();
-    if(r == 1 or c == 1){
-        int n = (r == 1 ? c : r);
-        matrix<T> res(n);
-        for(size_t idx = 0; idx < n; ++ idx)
-            res(idx, idx) = (r == 1 ? m(0, idx) : m(idx, 0));
-        return res;
-    }
-    else if(r == c){
-        matrix<T> res(r, 1);
-        for(size_t idx = 0; idx < r; ++ idx)
-            res(idx, 0) = m(idx, idx);
-        return res;
-    }
-    throw typename matrix<T>::DimensionalityException();
 }
 
 }
