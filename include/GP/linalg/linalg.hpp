@@ -83,8 +83,10 @@ matrix<T> inv_impl(matrix<T>& mat){
             auto self_start_r = self_ptr + r*n;
             auto inv_start_r = inv_ptr + r*n;
             T ratio = mat(r, iter);
-            for(size_t c = 0; c < n; ++c){
+            for(size_t c = iter; c < n; ++c){
                 self_start_r[c] -= self_start_iter[c] * ratio;
+            }
+            for(size_t c = 0; c <= iter; ++c){
                 inv_start_r[c] -= inv_start_iter[c] * ratio;
             }
         }
