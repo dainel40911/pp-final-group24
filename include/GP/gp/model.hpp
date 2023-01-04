@@ -4,17 +4,9 @@
 #include <cmath>
 #include <numeric>
 #include <vector>
-#include <chrono>
+
 namespace GP{
-auto print_time_spent(std::chrono::high_resolution_clock::time_point start_time){
-    auto end_time = std::chrono::high_resolution_clock::now();
-    auto duration = end_time - start_time;
-    std::cout << "Time spent: " 
-        << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
-        << " (ms)"
-        << std::endl;
-    return end_time;
-}
+
 class GPRegression{
 private:
     matrix C_inv_, X_, Y_;
